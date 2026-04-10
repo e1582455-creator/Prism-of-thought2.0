@@ -1,4 +1,2 @@
 streamlit
-torch
-transformers
-accelerate
+requests
