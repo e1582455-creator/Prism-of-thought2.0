@@ -105,18 +105,18 @@ elif st.session_state.stage == 3:
             
             with st.spinner(f"Refracting as {st.session_state.ai_id}..."):
                 output = query_api({"inputs": prompt, "parameters": {"max_new_tokens": 150, "temperature": 0.8}})
-                try:
-                    res = output[0]['generated_text'].split("assistant\n")[-1].strip()
-                    
-                    # 自动截断至最后一个完整标点
-                    last_punc = max(res.rfind('.'), res.rfind('!'), res.rfind('?'))
-                    final_res = res[:last_punc + 1] if last_punc != -1 else res
-                    
-                    st.write(final_res)
-                    st.session_state.messages.append({"role": "assistant", "content": final_res})
-                except:
-                    st.error("API 响应异常，请稍后重试。")
-
+              try:
+                    # 如果返回的是错误字典，这里会报错
+                    if isinstance(output, dict) and "error" in output:
+                        st.error(f"API Error: {output['error']}")
+                    else:
+                        res = output[0]['generated_text'].split("assistant\n")[-1].strip()
+                        # ... 后面原有的截断逻辑 ...
+                        st.write(final_res)
+                        st.session_state.messages.append({"role": "assistant", "content": final_res})
+                except Exception as e:
+                    st.error(f"诊断信息: {str(e)}") # 这样能看到具体的报错原因
+                    st.info("建议：如果是 'Model is loading'，请等待进度条完成。")
     if st.sidebar.button("Reset Session"):
         st.session_state.clear()
         st.rerun()
