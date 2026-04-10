@@ -2,8 +2,7 @@ import streamlit as st
 import requests
 import re
 
-# --- 1. 云端配置 (已填入你的 Token) ---
-# 这样不需要在本地加载 3GB 权重，彻底解决 Connection error
+# --- 1. 云端配置 ---
 HF_TOKEN = "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"
 API_URL = "https://api-inference.huggingface.co/models/Qwen/Qwen2.5-7B-Instruct"
 HEADERS = {"Authorization": f"Bearer {HF_TOKEN}"}
@@ -12,7 +11,7 @@ def query_api(payload):
     response = requests.post(API_URL, headers=HEADERS, json=payload)
     return response.json()
 
-# --- 2. 维度映射表 (保持你的原始设定) ---
+# --- 2. 维度映射表 ---
 DIMENSION_MAP = {
     "Politics": {"L": {1: "You lean towards social welfare...", 2: "You firmly believe in socialist redistribution...", 3: "You are a radical socialist..."},
                 "R": {1: "You slightly prefer market solutions...", 2: "You strongly advocate for free markets...", 3: "You are a hardline libertarian..."}},
@@ -72,19 +71,26 @@ elif st.session_state.stage == 2:
             f"- **Class**: {DIMENSION_MAP['Class'][c_s][c_i]}\n"
             f"- **Openness**: {DIMENSION_MAP['Openness'][o_s][o_i]}"
         )
-        st.session_state.persona_summary = f"P:{p_val}, G:{s_val}, C:{c_val}, O:{o_val}"
+        
+        # 修正：确保这里保存了完整的参数说明字符串
+        st.session_state.persona_summary = f"Political {p_val}/3, Social {s_val}/3, Class {c_val}/3, Openness {o_val}/3"
         st.session_state.persona_display = display_details
         st.session_state.persona = f"Identity: Human. Protocol: Incisive, no preamble, max 80 words. Worldview:\n{display_details}"
         st.session_state.ai_id = f"{p_s}{p_i}-{s_s}{s_i}-{c_s}{c_i}-{o_s}{o_i}"
         st.session_state.stage = 3
         st.rerun()
 
-# --- STAGE 3: THE DIALOGUE (强化语义完整版) ---
+# --- STAGE 3: THE DIALOGUE (恢复参数说明版) ---
 elif st.session_state.stage == 3:
     st.title(f"⚖️ STAGE 3: DIALOGUE [{st.session_state.ai_id}]")
     
     with st.expander("🛠️ Active Persona & Issue Details", expanded=True):
-        st.markdown(f"**Topic:** {st.session_state.topic}")
+        st.markdown(f"**Topic:** \"{st.session_state.topic}\"")
+        
+        # 恢复图二效果：显示具体的人设数值规格
+        st.markdown(f"**QuickCode Specs:** {st.session_state.persona_summary}")
+        
+        st.divider()
         st.markdown(st.session_state.persona_display)
 
     for msg in st.session_state.messages:
@@ -95,7 +101,6 @@ elif st.session_state.stage == 3:
         with st.chat_message("user"): st.write(user_input)
 
         with st.chat_message("assistant"):
-            # 采用标注对话格式
             prompt = f"<|im_start|>system\n{st.session_state.persona}<|im_end|>\n<|im_start|>user\n{user_input}<|im_end|>\n<|im_start|>assistant\n"
             
             with st.spinner(f"Refracting as {st.session_state.ai_id}..."):
@@ -103,17 +108,14 @@ elif st.session_state.stage == 3:
                 try:
                     res = output[0]['generated_text'].split("assistant\n")[-1].strip()
                     
-                    # 解决断头句：自动截断至最后一个完整标点
+                    # 自动截断至最后一个完整标点
                     last_punc = max(res.rfind('.'), res.rfind('!'), res.rfind('?'))
-                    if last_punc != -1:
-                        final_res = res[:last_punc + 1]
-                    else:
-                        final_res = res
+                    final_res = res[:last_punc + 1] if last_punc != -1 else res
                     
                     st.write(final_res)
                     st.session_state.messages.append({"role": "assistant", "content": final_res})
                 except:
-                    st.error("API 正在加载，请等 15 秒后重试。")
+                    st.error("API 响应异常，请稍后重试。")
 
     if st.sidebar.button("Reset Session"):
         st.session_state.clear()
