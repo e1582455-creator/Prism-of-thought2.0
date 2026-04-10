@@ -1,6 +1,5 @@
 import streamlit as st
 import requests
-import re
 
 # --- 1. 云端配置 ---
 HF_TOKEN = "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"
@@ -25,15 +24,13 @@ DIMENSION_MAP = {
 
 st.set_page_config(page_title="Prism of Thought", page_icon="💎", layout="centered")
 
-# 状态管理
 if "stage" not in st.session_state: st.session_state.stage = 1
 if "messages" not in st.session_state: st.session_state.messages = []
 
 # --- STAGE 1: ISSUE PROJECTION ---
 if st.session_state.stage == 1:
     st.title("💎 STAGE 1: ISSUE PROJECTION")
-    topic = st.text_area("Project a question into the prism:", 
-                         placeholder="e.g., Will UBI affect work motivation?", height=100)
+    topic = st.text_area("Project a question into the prism:", placeholder="e.g., Will UBI affect work motivation?", height=100)
     if st.button("Initiate Issue"):
         if topic:
             st.session_state.topic = topic
@@ -44,7 +41,6 @@ if st.session_state.stage == 1:
 elif st.session_state.stage == 2:
     st.title("🧬 STAGE 2: CALIBRATE THE MIRROR")
     st.info(f"🎯 **Topic:** {st.session_state.topic}")
-    
     st.markdown("### Persona Settings")
     col1, col2 = st.columns(2)
     with col1:
@@ -71,8 +67,6 @@ elif st.session_state.stage == 2:
             f"- **Class**: {DIMENSION_MAP['Class'][c_s][c_i]}\n"
             f"- **Openness**: {DIMENSION_MAP['Openness'][o_s][o_i]}"
         )
-        
-        # 修正：确保这里保存了完整的参数说明字符串
         st.session_state.persona_summary = f"Political {p_val}/3, Social {s_val}/3, Class {c_val}/3, Openness {o_val}/3"
         st.session_state.persona_display = display_details
         st.session_state.persona = f"Identity: Human. Protocol: Incisive, no preamble, max 80 words. Worldview:\n{display_details}"
@@ -80,16 +74,12 @@ elif st.session_state.stage == 2:
         st.session_state.stage = 3
         st.rerun()
 
-# --- STAGE 3: THE DIALOGUE (恢复参数说明版) ---
+# --- STAGE 3: THE DIALOGUE ---
 elif st.session_state.stage == 3:
     st.title(f"⚖️ STAGE 3: DIALOGUE [{st.session_state.ai_id}]")
-    
     with st.expander("🛠️ Active Persona & Issue Details", expanded=True):
         st.markdown(f"**Topic:** \"{st.session_state.topic}\"")
-        
-        # 恢复图二效果：显示具体的人设数值规格
         st.markdown(f"**QuickCode Specs:** {st.session_state.persona_summary}")
-        
         st.divider()
         st.markdown(st.session_state.persona_display)
 
@@ -102,21 +92,20 @@ elif st.session_state.stage == 3:
 
         with st.chat_message("assistant"):
             prompt = f"<|im_start|>system\n{st.session_state.persona}<|im_end|>\n<|im_start|>user\n{user_input}<|im_end|>\n<|im_start|>assistant\n"
-            
             with st.spinner(f"Refracting as {st.session_state.ai_id}..."):
                 output = query_api({"inputs": prompt, "parameters": {"max_new_tokens": 150, "temperature": 0.8}})
-              try:
-                    # 如果返回的是错误字典，这里会报错
+                try:
                     if isinstance(output, dict) and "error" in output:
                         st.error(f"API Error: {output['error']}")
                     else:
                         res = output[0]['generated_text'].split("assistant\n")[-1].strip()
-                        # ... 后面原有的截断逻辑 ...
+                        last_punc = max(res.rfind('.'), res.rfind('!'), res.rfind('?'))
+                        final_res = res[:last_punc + 1] if last_punc != -1 else res
                         st.write(final_res)
                         st.session_state.messages.append({"role": "assistant", "content": final_res})
                 except Exception as e:
-                    st.error(f"诊断信息: {str(e)}") # 这样能看到具体的报错原因
-                    st.info("建议：如果是 'Model is loading'，请等待进度条完成。")
+                    st.error(f"Error: {str(e)}")
+
     if st.sidebar.button("Reset Session"):
         st.session_state.clear()
         st.rerun()
